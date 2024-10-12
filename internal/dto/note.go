@@ -1,6 +1,6 @@
 package dto
 
-type NoteDto struct {
+type Dto struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
 }
