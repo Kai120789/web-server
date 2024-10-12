@@ -3,8 +3,10 @@ package storage
 import (
 	"context"
 	"fmt"
+	"web-server/internal/dto"
 	"web-server/internal/models"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -52,18 +54,61 @@ func (d *Storage) GetAllNotes() ([]models.Note, error) {
 
 }
 
-func AddNote() {
+func (d *Storage) AddNote(body dto.Dto) (*models.Note, error) {
+	query := `INSERT INTO notes (title, content) VALUES ($1, $2) RETURNING id`
 
+	var id uint
+
+	err := d.db.QueryRow(context.Background(), query, body.Title, body.Content).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+
+	noteRet, err := d.GetNote(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return noteRet, nil
 }
 
-func GetNote() {
+func (d *Storage) GetNote(id uint) (*models.Note, error) {
+	query := `SELECT title, content FROM notes WHERE id=$1`
+	row := d.db.QueryRow(context.Background(), query, id)
 
+	var note models.Note
+	err := row.Scan(&note.ID, &note.Title, &note.Content)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &note, nil
 }
 
-func UpdateNote() {
+func (d *Storage) UpdateNote(body dto.Dto, id uint) (*models.Note, error) {
+	query := `UPDATE notes SET title=$1, content=$2 WHERE id=$3`
+	_, err := d.db.Exec(context.Background(), query, body.Title, body.Content, id)
+	if err != nil {
+		return nil, err
+	}
 
+	boardRet, err := d.GetNote(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return boardRet, nil
 }
 
-func DeleteNote() {
+func (d *Storage) DeleteNote(id uint) error {
+	query := `DELETE FROM notes WHERE id=$1`
+	_, err := d.db.Exec(context.Background(), query, id)
+	if err != nil {
+		return err
+	}
 
+	return nil
 }
