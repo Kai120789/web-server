@@ -2,7 +2,7 @@ package router
 
 import (
 	"net/http"
-	"web-server/internal/transport/handler"
+	"web-server/internal/transport/http/handler"
 
 	"github.com/go-chi/chi/v5"
 )
