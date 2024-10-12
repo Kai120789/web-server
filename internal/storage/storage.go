@@ -32,7 +32,7 @@ func GetConnect(connectStr string) (*pgxpool.Pool, error) {
 	return db, nil
 }
 
-func (d *Storage) GetAllNotes() ([]models.Note, error) {
+func (d *Storage) GetAllNotes() (*[]models.Note, error) {
 	query := `SELECT * FROM notes`
 
 	rows, err := d.db.Query(context.Background(), query)
@@ -50,7 +50,7 @@ func (d *Storage) GetAllNotes() ([]models.Note, error) {
 		notes = append(notes, note)
 	}
 
-	return notes, nil
+	return &notes, nil
 
 }
 
