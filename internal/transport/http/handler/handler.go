@@ -8,7 +8,7 @@ import (
 	"web-server/internal/dto"
 	"web-server/internal/models"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 

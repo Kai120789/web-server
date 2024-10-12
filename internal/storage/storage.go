@@ -73,7 +73,7 @@ func (d *Storage) AddNote(body dto.Dto) (*models.Note, error) {
 }
 
 func (d *Storage) GetNote(id uint) (*models.Note, error) {
-	query := `SELECT title, content FROM notes WHERE id=$1`
+	query := `SELECT * FROM notes WHERE id=$1`
 	row := d.db.QueryRow(context.Background(), query, id)
 
 	var note models.Note
