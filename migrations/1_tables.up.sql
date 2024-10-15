@@ -1,5 +1,0 @@
-CREATE TABLE IF NOT EXISTS notes (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(50) NOT NULL,
-    content VARCHAR(200)
-)
