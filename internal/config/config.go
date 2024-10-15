@@ -10,7 +10,6 @@ import (
 
 type Config struct {
 	ServerAddress string
-	DBDSN         string
 	LogLevel      string
 }
 
@@ -23,12 +22,6 @@ func GetConfig() (*Config, error) {
 
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 		cfg.ServerAddress = envRunAddr
-	}
-
-	if envDBConn := os.Getenv("DBDSN"); envDBConn != "" {
-		cfg.DBDSN = envDBConn
-	} else {
-		flag.StringVar(&cfg.DBDSN, "d", "", "DBDSN for database")
 	}
 
 	if envLogLevel := os.Getenv("LOG_LEVEL"); envLogLevel != "" {

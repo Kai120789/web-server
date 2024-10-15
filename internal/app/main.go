@@ -1,7 +1,9 @@
 package app
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"web-server/internal/config"
 	"web-server/internal/service"
 	"web-server/internal/storage"
@@ -15,24 +17,35 @@ import (
 func StartServer() {
 	cfg, err := config.GetConfig()
 	if err != nil {
-		zap.S().Fatalf("get config error", zap.Error(err))
+		fmt.Println(err.Error())
+		return
 	}
 
 	zapLog, err := logger.New(cfg.LogLevel)
 	if err != nil {
-		zap.S().Fatalf("logger init error", zap.Error(err))
+		fmt.Println(err.Error())
+		return
+	}
+
+	filePath := "./notes.json"
+
+	// check is file exist
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		file, err := os.Create(filePath)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		defer file.Close()
+		fmt.Println("Файл успешно создан:", filePath)
+
+	} else {
+		fmt.Println("Файл уже существует:", filePath)
 	}
 
 	log := zapLog.ZapLogger
 
-	dbConn, err := storage.GetConnect(cfg.DBDSN)
-	if err != nil {
-		log.Fatal("error connect to db", zap.Error(err))
-	}
-
-	defer dbConn.Close()
-
-	stor := storage.New(dbConn, log)
+	stor := storage.New("./notes.json")
 
 	serv := service.New(stor)
 

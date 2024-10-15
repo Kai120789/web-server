@@ -1,114 +1,133 @@
 package storage
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"web-server/internal/dto"
 	"web-server/internal/models"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"go.uber.org/zap"
 )
 
 type Storage struct {
-	db     *pgxpool.Pool
-	logger *zap.Logger
+	filePath string
 }
 
-func New(Conn *pgxpool.Pool, l *zap.Logger) *Storage {
+func New(filePath string) *Storage {
 	return &Storage{
-		db:     Conn,
-		logger: l,
+		filePath: filePath,
 	}
 }
 
-func GetConnect(connectStr string) (*pgxpool.Pool, error) {
-	db, err := pgxpool.New(context.Background(), connectStr)
+func (s *Storage) readNotes() ([]models.Note, error) {
+	file, err := os.ReadFile(s.filePath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to connect to db: %v", err)
-	}
-
-	return db, nil
-}
-
-func (d *Storage) GetAllNotes() (*[]models.Note, error) {
-	query := `SELECT * FROM notes`
-
-	rows, err := d.db.Query(context.Background(), query)
-	if err != nil {
+		fmt.Println(err.Error())
 		return nil, err
+	}
+
+	// Проверка на пустой файл
+	if len(file) == 0 {
+		return []models.Note{}, nil
 	}
 
 	var notes []models.Note
-	for rows.Next() {
-		var note models.Note
-		err := rows.Scan(&note.ID, &note.Title, &note.Content)
-		if err != nil {
-			return nil, err
-		}
-		notes = append(notes, note)
+	err = json.Unmarshal(file, &notes)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
 	}
 
-	return &notes, nil
-
+	return notes, nil
 }
 
-func (d *Storage) AddNote(body dto.Dto) (*models.Note, error) {
-	query := `INSERT INTO notes (title, content) VALUES ($1, $2) RETURNING id`
-
-	var id uint
-
-	err := d.db.QueryRow(context.Background(), query, body.Title, body.Content).Scan(&id)
-	if err != nil {
-		return nil, err
-	}
-
-	noteRet, err := d.GetNote(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return noteRet, nil
-}
-
-func (d *Storage) GetNote(id uint) (*models.Note, error) {
-	query := `SELECT * FROM notes WHERE id=$1`
-	row := d.db.QueryRow(context.Background(), query, id)
-
-	var note models.Note
-	err := row.Scan(&note.ID, &note.Title, &note.Content)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &note, nil
-}
-
-func (d *Storage) UpdateNote(body dto.Dto, id uint) (*models.Note, error) {
-	query := `UPDATE notes SET title=$1, content=$2 WHERE id=$3`
-	_, err := d.db.Exec(context.Background(), query, body.Title, body.Content, id)
-	if err != nil {
-		return nil, err
-	}
-
-	boardRet, err := d.GetNote(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return boardRet, nil
-}
-
-func (d *Storage) DeleteNote(id uint) error {
-	query := `DELETE FROM notes WHERE id=$1`
-	_, err := d.db.Exec(context.Background(), query, id)
+func (s *Storage) writeNotes(notes []models.Note) error {
+	data, err := json.Marshal(notes)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return os.WriteFile(s.filePath, data, os.ModePerm)
+}
+
+func (s *Storage) GetAllNotes() (*[]models.Note, error) {
+	notes, err := s.readNotes()
+	if err != nil {
+		return nil, err
+	}
+	return &notes, nil
+}
+
+func (s *Storage) AddNote(body dto.Dto) (*models.Note, error) {
+	notes, err := s.readNotes()
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+
+	id := uint(len(notes) + 1) // простая автоинкрементация
+	newNote := models.Note{
+		ID:      id,
+		Title:   body.Title,
+		Content: body.Content,
+	}
+	notes = append(notes, newNote)
+
+	err = s.writeNotes(notes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &newNote, nil
+}
+
+func (s *Storage) GetNote(id uint) (*models.Note, error) {
+	notes, err := s.readNotes()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, note := range notes {
+		if note.ID == id {
+			return &note, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func (s *Storage) UpdateNote(body dto.Dto, id uint) (*models.Note, error) {
+	notes, err := s.readNotes()
+	if err != nil {
+		return nil, err
+	}
+
+	for i, note := range notes {
+		if note.ID == id {
+			notes[i].Title = body.Title
+			notes[i].Content = body.Content
+			err = s.writeNotes(notes)
+			if err != nil {
+				return nil, err
+			}
+			return &notes[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("note with id %d not found", id)
+}
+
+func (s *Storage) DeleteNote(id uint) error {
+	notes, err := s.readNotes()
+	if err != nil {
+		return err
+	}
+
+	for i, note := range notes {
+		if note.ID == id {
+			notes = append(notes[:i], notes[i+1:]...)
+			return s.writeNotes(notes)
+		}
+	}
+
+	return fmt.Errorf("note with id %d not found", id)
 }

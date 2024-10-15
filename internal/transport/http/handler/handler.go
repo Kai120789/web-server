@@ -59,6 +59,7 @@ func (h *Handler) AddNote(w http.ResponseWriter, r *http.Request) {
 	noteRet, err := h.service.AddNote(note)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
